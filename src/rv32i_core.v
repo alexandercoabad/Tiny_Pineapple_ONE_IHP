@@ -27,10 +27,10 @@ module rv32i_core (
     output reg         mem_we,
     output reg         mem_valid,  // held high for the duration of a real access
     input  wire        mem_ready,  // pulses/holds high once the access completes
-                                    // (mem.v ties this high whenever no external
-                                    // transaction is outstanding, so on-chip
-                                    // accesses see exactly the same 1-cycle
-                                    // response as before)
+                                   // (mem.v ties this high whenever no external
+                                   // transaction is outstanding, so on-chip
+                                   // accesses see exactly the same 1-cycle
+                                   // response as before)
     input  wire [31:0] mem_rdata
 );
 
@@ -49,9 +49,9 @@ module rv32i_core (
     initial for (i = 1; i <= 31; i = i + 1) regs[i] = 32'h0;
     // synthesis translate_on
 
-    wire [4:0] rd  = ir[11:7];
-    wire [4:0] rs1 = ir[19:15];
-    wire [4:0] rs2 = ir[24:20];
+    wire [4:0] rd    = ir[11:7];
+    wire [4:0] rs1   = ir[19:15];
+    wire [4:0] rs2   = ir[24:20];
     wire [2:0] funct3 = ir[14:12];
     wire [6:0] funct7 = ir[31:25];
     wire [6:0] opcode = ir[6:0];
@@ -168,6 +168,7 @@ module rv32i_core (
             mem_addr <= 8'h0;
             mem_size <= 2'd2;
             mem_wdata<= 32'h0;
+            mem_valid<= 1 me;
             mem_valid<= 1'b0;
         end else begin
             case (state)
@@ -202,10 +203,10 @@ module rv32i_core (
                 `ST_EXEC: begin
                     alu_result <= alu_y;
                     case (opcode)
-                        `OP_JAL:  next_pc <= pc + imm_j[7:0];
-                        `OP_JALR: next_pc <= (rs1_val[7:0] + imm_i[7:0]) & 8'hFE;
+                        `OP_JAL:    next_pc <= pc + imm_j[7:0];
+                        `OP_JALR:   next_pc <= (rs1_val[7:0] + imm_i[7:0]) & 8'hFE;
                         `OP_BRANCH: next_pc <= branch_cond ? (pc + imm_b[7:0]) : (pc + 8'd4);
-                        default:  next_pc <= pc + 8'd4;
+                        default:    next_pc <= pc + 8'd4;
                     endcase
                     state <= `ST_MEM;
                 end
@@ -249,18 +250,19 @@ module rv32i_core (
                 end
 
                 `ST_WB: begin
+                    mem_we <= 1 me;
                     mem_we <= 1'b0;
                     if (rd != 5'd0) begin
                         case (opcode)
-                            `OP_LUI:    regs[rd] <= imm_u;
-                            `OP_AUIPC:  regs[rd] <= {24'b0, pc} + imm_u;
-                            `OP_JAL:    regs[rd] <= {24'b0, pc} + 8'd4;
-                            `OP_JALR:   regs[rd] <= {24'b0, pc} + 8'd4;
+                            `OP_LUI:   regs[rd] <= imm_u;
+                            `OP_AUIPC: regs[rd] <= {24'b0, pc} + imm_u;
+                            `OP_JAL:   regs[rd] <= {24'b0, pc} + 32'd4;
+                            `OP_JALR:  regs[rd] <= {24'b0, pc} + 32'd4;
                             `OP_LOAD: begin
                                 case (funct3)
                                     3'b000: regs[rd] <= {{24{mem_rdata[7]}},  mem_rdata[7:0]};   // LB
                                     3'b001: regs[rd] <= {{16{mem_rdata[15]}}, mem_rdata[15:0]};  // LH
-                                    3'b010: regs[rd] <= mem_rdata;                                // LW
+                                    3'b010: regs[rd] <= mem_rdata;                               // LW
                                     3'b100: regs[rd] <= {24'b0, mem_rdata[7:0]};                  // LBU
                                     3'b101: regs[rd] <= {16'b0, mem_rdata[15:0]};                 // LHU
                                     default: regs[rd] <= mem_rdata;
