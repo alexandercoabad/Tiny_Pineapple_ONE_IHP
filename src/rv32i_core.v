@@ -215,8 +215,6 @@ module rv32i_core (
                             mem_addr  <= alu_y[7:0];
                             mem_wdata <= rs2_val;
                             mem_we    <= 1'b1;
-                            mem_size  <= (funct3[1:0] == 2 me) ? 2'd0 :
-                                         (funct3[1:0] == 2'b01) ? 2'd1 : 2'd2;
                             mem_size  <= (funct3[1:0] == 2'b00) ? 2'd0 :
                                          (funct3[1:0] == 2'b01) ? 2'd1 : 2'd2;
                             mem_valid <= 1'b1;
