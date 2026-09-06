@@ -168,7 +168,6 @@ module rv32i_core (
             mem_addr <= 8'h0;
             mem_size <= 2'd2;
             mem_wdata<= 32'h0;
-            mem_valid<= 1 me;
             mem_valid<= 1'b0;
         end else begin
             case (state)
@@ -181,14 +180,6 @@ module rv32i_core (
                 end
 
                 `ST_FETCH_WAIT: begin
-                    // mem_addr/mem_size/mem_valid hold their values from
-                    // ST_FETCH above (no assignment here == no change).
-                    // On-chip accesses see mem_ready already high the very
-                    // first cycle this state is entered (mem.v ties it high
-                    // whenever nothing external is in flight), so this adds
-                    // exactly one extra cycle versus the old direct
-                    // FETCH -> DECODE transition -- the cost of adding a
-                    // real handshake to what used to be a fixed-latency bus.
                     if (mem_ready) begin
                         mem_valid <= 1'b0;
                         state     <= `ST_DECODE;
@@ -224,6 +215,8 @@ module rv32i_core (
                             mem_addr  <= alu_y[7:0];
                             mem_wdata <= rs2_val;
                             mem_we    <= 1'b1;
+                            mem_size  <= (funct3[1:0] == 2 me) ? 2'd0 :
+                                         (funct3[1:0] == 2'b01) ? 2'd1 : 2'd2;
                             mem_size  <= (funct3[1:0] == 2'b00) ? 2'd0 :
                                          (funct3[1:0] == 2'b01) ? 2'd1 : 2'd2;
                             mem_valid <= 1'b1;
@@ -237,11 +230,6 @@ module rv32i_core (
                 end
 
                 `ST_MEM_WAIT: begin
-                    // Non-memory instructions left mem_valid low above, and
-                    // mem.v/the QSPI engine tie mem_ready high whenever no
-                    // request is outstanding -- so this falls through
-                    // immediately for ALU/branch/etc. instructions, same as
-                    // the old direct MEM -> WB transition.
                     if (mem_ready) begin
                         mem_valid <= 1'b0;
                         mem_we    <= 1'b0;
@@ -250,7 +238,6 @@ module rv32i_core (
                 end
 
                 `ST_WB: begin
-                    mem_we <= 1 me;
                     mem_we <= 1'b0;
                     if (rd != 5'd0) begin
                         case (opcode)
