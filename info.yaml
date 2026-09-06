@@ -20,6 +20,7 @@ project:
     - "tt_um_pineapple_one.v"
     - "rv32i_core.v"
     - "mem.v"
+    - "qspi_shared_engine.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
@@ -45,11 +46,11 @@ pinout:
   uo[7]: "LED7"
 
   # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
+  uio[0]: "qspi_cs0"
+  uio[1]: "qspi_sck"
+  uio[2]: "qspi_mosi"
+  uio[3]: "qspi_miso"
+  uio[4]: "qspi_cs1"
   uio[5]: ""
   uio[6]: ""
   uio[7]: ""
