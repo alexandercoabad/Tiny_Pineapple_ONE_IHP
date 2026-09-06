@@ -2,21 +2,21 @@
 //
 // Address map (8-bit address space, 256 bytes total):
 //   0x00 - 0x7F : ROM   (128 bytes / 32 instructions) -- combinational,
-//                 becomes fixed logic at synthesis time. Safe to rely on
-//                 at power-up on real silicon since it is NOT flip-flop
-//                 state, it is a lookup built from your program bytes.
+//                   becomes fixed logic at synthesis time. Safe to rely on
+//                   at power-up on real silicon since it is NOT flip-flop
+//                   state, it is a lookup built from your program bytes.
 //   0x80 - 0xAF : RAM   (48 bytes) -- flip-flops, undefined at power-on
-//                 on real silicon, use for stack/scratch data only.
+//                   on real silicon, use for stack/scratch data only.
 //   0xB0 - 0xEF : RAM   (64 bytes) -- external PSRAM ("RAM A" / CS1) on
-//                 the Tiny Tapeout QSPI Pmod, via qspi_shared_engine.
-//                 Reads/writes here take multiple clock cycles (the
-//                 core stalls on `ready` until the SPI transaction
-//                 completes) instead of the single-cycle response
-//                 everything else on this bus gets. Requires the QSPI
-//                 Pmod to be physically attached -- with nothing
-//                 attached, reads/writes to this range have undefined
-//                 results (floating MISO), not a defined "unmapped"
-//                 no-op.
+//                   the Tiny Tapeout QSPI Pmod, via qspi_shared_engine.
+//                   Reads/writes here take multiple clock cycles (the
+//                   core stalls on `ready` until the SPI transaction
+//                   completes) instead of the single-cycle response
+//                   everything else on this bus gets. Requires the QSPI
+//                   Pmod to be physically attached -- with nothing
+//                   attached, reads/writes to this range have undefined
+//                   results (floating MISO), not a defined "unmapped"
+//                   no-op.
 //   0xF0        : LED_OUT  (memory-mapped, write-only, drives uo_out)
 //   0xF4        : SW_IN    (memory-mapped, read-only, reflects ui_in)
 //
@@ -43,10 +43,10 @@ module mem #(
     input  wire [1:0]  size,       // 0=byte, 1=half, 2=word
     input  wire        we,
     input  wire        valid,      // held high by the core for the whole access
-    output wire         ready,      // 1 whenever no external transaction is
-                                    // in flight -- on-chip accesses always
-                                    // see this high immediately (same 1-cycle
-                                    // timing as before this port existed)
+    output wire        ready,      // 1 whenever no external transaction is
+                                   // in flight -- on-chip accesses always
+                                   // see this high immediately (same 1-cycle
+                                   // timing as before this port existed)
     output reg  [31:0] rdata,
 
     input  wire [7:0]  gpio_in,    // ui_in, mapped at 0xF4
@@ -110,7 +110,7 @@ module mem #(
         end
     endfunction
 
-    wire [31:0] rom_word = {rom_byte(addr+3), rom_byte(addr+2), rom_byte(addr+1), rom_byte(addr)};
+    wire [31:0] rom_word = {rom_byte(addr+8'd3), rom_byte(addr+8'd2), rom_byte(addr+8'd1), rom_byte(addr)};
 
     // ---------------------------------------------------------------
     // RAM: RAM_BYTES bytes (default 48), flip-flop backed
@@ -167,7 +167,7 @@ module mem #(
         if (in_rom) begin
             rdata = rom_word;
         end else if (in_ram) begin
-            rdata = {ram[ram_addr+3], ram[ram_addr+2], ram[ram_addr+1], ram[ram_addr]};
+            rdata = {ram[ram_addr[5:0] + 6'd3], ram[ram_addr[5:0] + 6'd2], ram[ram_addr[5:0] + 6'd1], ram[ram_addr[5:0]]};
         end else if (in_ext) begin
             rdata = ext_rdata; // only meaningful once `ready` has pulsed -- see header
         end else if (addr == 8'hF0) begin
@@ -188,16 +188,16 @@ module mem #(
         end else if (we) begin
             if (in_ram) begin
                 case (size)
-                    2'd0: ram[ram_addr] <= wdata[7:0];
+                    2'd0: ram[ram_addr[5:0]] <= wdata[7:0];
                     2'd1: begin
-                        ram[ram_addr]   <= wdata[7:0];
-                        ram[ram_addr+1] <= wdata[15:8];
+                        ram[ram_addr[5:0]]        <= wdata[7:0];
+                        ram[ram_addr[5:0] + 6'd1] <= wdata[15:8];
                     end
                     default: begin
-                        ram[ram_addr]   <= wdata[7:0];
-                        ram[ram_addr+1] <= wdata[15:8];
-                        ram[ram_addr+2] <= wdata[23:16];
-                        ram[ram_addr+3] <= wdata[31:24];
+                        ram[ram_addr[5:0]]        <= wdata[7:0];
+                        ram[ram_addr[5:0] + 6'd1] <= wdata[15:8];
+                        ram[ram_addr[5:0] + 6'd2] <= wdata[23:16];
+                        ram[ram_addr[5:0] + 6'd3] <= wdata[31:24];
                     end
                 endcase
             end else if (addr == 8'hF0) begin
@@ -207,4 +207,3 @@ module mem #(
     end
 
 endmodule
-
