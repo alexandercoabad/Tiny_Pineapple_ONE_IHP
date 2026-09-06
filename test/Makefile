@@ -41,3 +41,29 @@ COCOTB_TEST_MODULES = test
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+# ---------------------------------------------------------------------
+# Standalone testbenches (plain iverilog, not cocotb) covering the QSPI
+# external-memory addition. Not part of cocotb's own `all`/default
+# target above -- run explicitly via `make standalone-tests`, which CI
+# calls as a separate step. Each one must print "ALL TESTS PASSED" or
+# this target fails the build.
+# ---------------------------------------------------------------------
+.PHONY: standalone-tests
+standalone-tests:
+	@echo "--- tb_qspi_engine.v ---"
+	iverilog -g2012 -o /tmp/tb_qspi_engine.vvp $(SRC_DIR)/qspi_shared_engine.v tb_qspi_engine.v
+	vvp /tmp/tb_qspi_engine.vvp | tee /tmp/tb_qspi_engine.log
+	grep -q "ALL TESTS PASSED" /tmp/tb_qspi_engine.log
+	! grep -q "^FAIL" /tmp/tb_qspi_engine.log
+	@echo "--- tb_mem_ext.v ---"
+	iverilog -g2012 -I$(SRC_DIR) -o /tmp/tb_mem_ext.vvp $(SRC_DIR)/mem.v $(SRC_DIR)/qspi_shared_engine.v spi_ram_model.v tb_mem_ext.v
+	vvp /tmp/tb_mem_ext.vvp | tee /tmp/tb_mem_ext.log
+	grep -q "ALL TESTS PASSED" /tmp/tb_mem_ext.log
+	! grep -q "^FAIL" /tmp/tb_mem_ext.log
+	@echo "--- tb_core_ext.v ---"
+	iverilog -g2012 -I$(SRC_DIR) -o /tmp/tb_core_ext.vvp $(SRC_DIR)/rv32i_core.v $(SRC_DIR)/qspi_shared_engine.v mem_extmem_test.v spi_ram_model.v tb_core_ext.v
+	vvp /tmp/tb_core_ext.vvp | tee /tmp/tb_core_ext.log
+	grep -q "ALL TESTS PASSED" /tmp/tb_core_ext.log
+	! grep -q "^FAIL" /tmp/tb_core_ext.log
+	@echo "--- all standalone tests passed ---"

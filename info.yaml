@@ -1,7 +1,7 @@
 # Tiny Tapeout project information
 project:
   title:        "Pineapple ONE (Tiny)"      # Project title
-  author:       "TODO: your name"      # Your name
+  author:       "Alexander Co Abad"      # Your name
   discord:      "TODO: your discord username"      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
   description:  "A minimal from-scratch RV32I CPU, inspired by the discrete-logic Pineapple ONE RISC-V computer, reimplemented as synthesizable Verilog for a single Tiny Tapeout tile."
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
@@ -47,12 +47,12 @@ pinout:
 
   # Bidirectional pins
   uio[0]: "qspi_cs0"
-  uio[1]: "qspi_sck"
-  uio[2]: "qspi_mosi"
-  uio[3]: "qspi_miso"
-  uio[4]: "qspi_cs1"
+  uio[1]: "qspi_mosi"
+  uio[2]: "qspi_miso"
+  uio[3]: "qspi_sck"
+  uio[4]: ""
   uio[5]: ""
-  uio[6]: ""
+  uio[6]: "qspi_cs1"
   uio[7]: ""
 
 # Do not change!

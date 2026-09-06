@@ -76,21 +76,24 @@ assembler included in this project -- either hand-encode short programs
 or `M` extensions, since this core implements neither) and extract the
 raw bytes.
 
-Three test suites cover different parts of this design (see `test/`):
+Four test suites cover different parts of this design (see `test/`):
 `test.py` (cocotb) drives the real top-level module and checks the demo
 counter behavior end-to-end; `tb_qspi_engine.v` checks the QSPI engine's
 SPI bit-level protocol and byte ordering in isolation; `tb_mem_ext.v`
-exercises the external RAM window through the real engine plus a
-behavioral SPI RAM model (`spi_ram_model.v`), covering the write/read
-round trip and address-decode interaction with on-chip RAM that neither
-of the other two suites covers on its own.
+exercises the external RAM window by driving mem.v's bus signals
+directly (as the core's FSM would) through the real engine plus a
+behavioral SPI RAM model (`spi_ram_model.v`); and `tb_core_ext.v` closes
+the remaining gap by running the *real* `rv32i_core` executing actual
+RV32I load/store instructions (`mem_test_ext.v` swaps in a small test
+program in place of the production demo) against that same external
+window, confirming the address decode, wait-state handshake, QSPI
+engine, and byte ordering all work together when driven by the CPU
+itself rather than a testbench standing in for it.
 
 **Known limitation:** the external RAM window has only been validated
-against the behavioral model in `spi_ram_model.v`, not a real flash/PSRAM
-chip or a vendor-accurate behavioral model, and not yet against a real
-RV32I program driving it through the CPU's own load/store instructions
-(only direct bus-level driving in `tb_mem_ext.v`). Treat it as tested
-groundwork, not hardware-proven, until that gap is closed.
+against the behavioral model in `spi_ram_model.v`, not a real
+flash/PSRAM chip or a vendor-accurate behavioral model. Treat the
+protocol-level correctness as tested, but not yet hardware-proven.
 
 ## External hardware
 
