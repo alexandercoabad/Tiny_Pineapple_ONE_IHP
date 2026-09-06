@@ -7,14 +7,24 @@ from cocotb.triggers import ClockCycles
 
 
 @cocotb.test()
-async def test_project(dut):
+async def test_counter_wraps(dut):
+    """The demo boot ROM increments a counter, masks it to 4 bits, and
+    stores it to the memory-mapped LED register. This checks that uo_out
+    (LED0..7) counts 0..15 and wraps back to 0, matching the standalone
+    Icarus testbench used during development (test/tb_top.v in the
+    original project skeleton).
+
+    Each instruction takes 7 clock cycles in this core's FSM (up from 5
+    -- the FETCH_WAIT/MEM_WAIT states added to support external QSPI
+    memory cost 2 extra cycles even for purely on-chip accesses), and
+    the demo loop is 4 instructions (addi/andi/sw/jal) after the initial
+    addi, so one counter increment = 28 clock cycles.
+    """
     dut._log.info("Start")
 
-    # Set the clock period to 10 us (100 KHz)
-    clock = Clock(dut.clk, 10, unit="us")
+    clock = Clock(dut.clk, 10, unit="us")  # 100 kHz sim clock
     cocotb.start_soon(clock.start())
 
-    # Reset
     dut._log.info("Reset")
     dut.ena.value = 1
     dut.ui_in.value = 0
@@ -23,18 +33,24 @@ async def test_project(dut):
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
 
-    dut._log.info("Test project behavior")
+    dut._log.info("Watch uo_out for at least one full 0..15 wrap")
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+    last = int(dut.uo_out.value)
+    seen_values = {last}
+    wrapped = False
 
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
+    # 28 cycles/increment * 20 increments gives >1 full wrap with margin.
+    for _ in range(28 * 20):
+        await ClockCycles(dut.clk, 1)
+        cur = int(dut.uo_out.value)
+        if cur != last:
+            assert 0 <= cur <= 15, f"uo_out left expected 0..15 range: {cur}"
+            if cur < last:
+                wrapped = True
+            seen_values.add(cur)
+            last = cur
 
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    assert wrapped, "counter never wrapped from 15 back to 0 in the simulated window"
+    assert seen_values == set(range(16)), (
+        f"expected to see all values 0..15, saw: {sorted(seen_values)}"
+    )

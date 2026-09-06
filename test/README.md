@@ -32,6 +32,24 @@ make -B FST=
 
 This will generate `tb.vcd` instead of `tb.fst`.
 
+## Additional standalone testbenches
+
+Two extra testbenches cover the QSPI external-memory addition and are
+**not** wired into `make` / the CI `test` workflow (which only runs the
+cocotb suite above). Run them directly with iverilog:
+
+```sh
+# QSPI engine bit-level protocol check (write bitstream, byte order, CS behavior)
+iverilog -g2012 -o /tmp/tb1.vvp ../src/qspi_shared_engine.v tb_qspi_engine.v && vvp /tmp/tb1.vvp
+
+# Full external-window integration test (mem.v + engine + a behavioral SPI RAM model)
+iverilog -g2012 -o /tmp/tb2.vvp ../src/mem.v ../src/qspi_shared_engine.v spi_ram_model.v tb_mem_ext.v && vvp /tmp/tb2.vvp
+```
+
+Neither of these has been checked against a real flash/PSRAM chip or a
+vendor-accurate behavioral model -- see `docs/info.md`'s "Known
+limitation" note.
+
 ## How to view the waveform file
 
 Using GTKWave
