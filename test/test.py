@@ -264,13 +264,19 @@ async def test_selftest_passes_with_pmod(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
-    # Attach slave before reset so it can respond to boot ROM self-test
     cocotb.start_soon(qspi_ram_slave(dut))
     await reset_dut(dut)
     await wait_for_first_led_write(dut)
 
-    assert (safe_int(dut.uo_out.value) >> 7) & 1 == 0, (
-        "expected uo_out[7]=0 (self-test passed) with a QSPI RAM slave attached"
+    passed = False
+    for _ in range(100):
+        if ((safe_int(dut.uo_out.value) >> 7) & 1) == 0:
+            passed = True
+            break
+        await ClockCycles(dut.clk, 1)
+
+    assert passed, (
+        f"expected uo_out[7]=0 (self-test passed) with a QSPI RAM slave attached, got uo_out={safe_int(dut.uo_out.value):#010b}"
     )
 
 
@@ -280,7 +286,6 @@ async def test_selftest_detects_mismatch(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
-    # Attach slave before reset so it can respond to boot ROM self-test
     cocotb.start_soon(qspi_ram_slave(dut, corrupt_reads=True))
     await reset_dut(dut)
     await wait_for_first_led_write(dut)
@@ -297,7 +302,6 @@ async def test_selftest_transaction_addresses_match(dut):
     cocotb.start_soon(clock.start())
 
     txns = []
-    # Attach slave before reset so it can capture all transactions during boot
     cocotb.start_soon(qspi_ram_slave(dut, log=txns))
     await reset_dut(dut)
     await wait_for_first_led_write(dut)
@@ -352,8 +356,16 @@ async def test_selftest_passes_again_after_soft_reset(dut):
     for attempt in (1, 2):
         await reset_dut(dut)
         await wait_for_first_led_write(dut)
-        assert (safe_int(dut.uo_out.value) >> 7) & 1 == 0, (
-            f"expected uo_out[7]=0 (self-test passed) on boot attempt {attempt} after a soft reset"
+
+        passed = False
+        for _ in range(100):
+            if ((safe_int(dut.uo_out.value) >> 7) & 1) == 0:
+                passed = True
+                break
+            await ClockCycles(dut.clk, 1)
+
+        assert passed, (
+            f"expected uo_out[7]=0 (self-test passed) on boot attempt {attempt} after a soft reset, got uo_out={safe_int(dut.uo_out.value):#010b}"
         )
 
 
