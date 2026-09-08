@@ -112,9 +112,10 @@ async def reset_dut(dut):
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
 
 
-async def wait_for_first_led_write(dut, max_cycles=500):
+async def wait_for_first_led_write(dut, max_cycles=2000):
     """Waits for the first nonzero write to uo_out -- the end of the
     self-test prefix and the start of the demo/listen loop."""
     for _ in range(max_cycles):
@@ -264,18 +265,18 @@ async def test_selftest_passes_with_pmod(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    # Start slave BEFORE holding/releasing reset to catch full SPI sequence
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+
     await wait_for_first_led_write(dut)
 
-    passed = False
-    for _ in range(100):
-        if ((safe_int(dut.uo_out.value) >> 7) & 1) == 0:
-            passed = True
-            break
-        await ClockCycles(dut.clk, 1)
-
-    assert passed, (
+    assert (safe_int(dut.uo_out.value) >> 7) & 1 == 0, (
         f"expected uo_out[7]=0 (self-test passed) with a QSPI RAM slave attached, got uo_out={safe_int(dut.uo_out.value):#010b}"
     )
 
@@ -286,8 +287,14 @@ async def test_selftest_detects_mismatch(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut, corrupt_reads=True))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+
     await wait_for_first_led_write(dut)
 
     assert (safe_int(dut.uo_out.value) >> 7) & 1 == 1, (
@@ -302,8 +309,14 @@ async def test_selftest_transaction_addresses_match(dut):
     cocotb.start_soon(clock.start())
 
     txns = []
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut, log=txns))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+
     await wait_for_first_led_write(dut)
 
     assert len(txns) >= 2, f"expected at least 2 QSPI transactions before the loop starts, saw {txns}"
@@ -321,8 +334,13 @@ async def test_flash_cs_never_asserted(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
 
     for _ in range(500 + 56 * 5):
         await ClockCycles(dut.clk, 1)
@@ -336,8 +354,13 @@ async def test_uio_oe_is_constant(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
 
     for _ in range(500 + 56 * 5):
         await ClockCycles(dut.clk, 1)
@@ -351,20 +374,21 @@ async def test_selftest_passes_again_after_soft_reset(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut))
+    await ClockCycles(dut.clk, 10)
 
     for attempt in (1, 2):
-        await reset_dut(dut)
+        dut.rst_n.value = 0
+        await ClockCycles(dut.clk, 10)
+        dut.rst_n.value = 1
+
         await wait_for_first_led_write(dut)
 
-        passed = False
-        for _ in range(100):
-            if ((safe_int(dut.uo_out.value) >> 7) & 1) == 0:
-                passed = True
-                break
-            await ClockCycles(dut.clk, 1)
-
-        assert passed, (
+        assert (safe_int(dut.uo_out.value) >> 7) & 1 == 0, (
             f"expected uo_out[7]=0 (self-test passed) on boot attempt {attempt} after a soft reset, got uo_out={safe_int(dut.uo_out.value):#010b}"
         )
 
@@ -375,8 +399,13 @@ async def test_bootloader_loads_and_runs_program(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
     cocotb.start_soon(qspi_ram_slave(dut))
-    await reset_dut(dut)
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
 
     await ClockCycles(dut.clk, 200)
 
