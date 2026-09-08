@@ -41,13 +41,15 @@ module rv32i_core (
     reg [7:0]  next_pc;
 
     // ------------------------------------------------------------
-    // Register file (x0 hardwired to 0)
+    // Register file (x0 hardwired to 0). `mem2reg` + `ifndef
+    // SYNTHESIS` here for the same lint-warning reasons as
+    // mem.v's ram_words -- see the comment there.
     // ------------------------------------------------------------
-    reg [31:0] regs [1:31];
+    (* mem2reg *) reg [31:0] regs [1:31];
     integer i;
-    // synthesis translate_off
+`ifndef SYNTHESIS
     initial for (i = 1; i <= 31; i = i + 1) regs[i] = 32'h0;
-    // synthesis translate_on
+`endif
 
     wire [4:0] rd    = ir[11:7];
     wire [4:0] rs1   = ir[19:15];

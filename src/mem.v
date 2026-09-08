@@ -198,12 +198,21 @@ module mem #(
     // ---------------------------------------------------------------
     localparam NWORDS = RAM_BYTES / 4;
 
-    reg [31:0] ram_words [0:NWORDS-1];
+    // `mem2reg` tells Yosys up front to treat this as individual
+    // flip-flops rather than attempting memory inference first and
+    // then falling back -- avoids a "Replacing memory \ram_words with
+    // list of registers" lint warning for what was always going to
+    // end up as plain DFFs anyway at this size (11 words).
+    (* mem2reg *) reg [31:0] ram_words [0:NWORDS-1];
     integer i;
 
-    // synthesis translate_off
+    // `ifndef SYNTHESIS` (which Yosys and other synthesis tools define
+    // automatically) is the portable, standards-compliant replacement
+    // for the old `synthesis translate_off/on` pragma pair -- same
+    // "simulation-only" effect, no lint warning about it.
+`ifndef SYNTHESIS
     initial for (i = 0; i < NWORDS; i = i + 1) ram_words[i] = 32'h0;
-    // synthesis translate_on
+`endif
 
     wire [5:0]  ram_widx0    = ram_addr[7:2];
     wire [5:0]  ram_widx1    = ram_addr[7:2] + 6'd1;
