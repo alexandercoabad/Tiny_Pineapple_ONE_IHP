@@ -55,7 +55,10 @@ module rv32i_core (
     wire [4:0] rs1   = ir[19:15];
     wire [4:0] rs2   = ir[24:20];
     wire [2:0] funct3 = ir[14:12];
-    wire [6:0] funct7 = ir[31:25];
+    // Only bit 5 of funct7 (ADD/SUB, SRL/SRA disambiguation) is ever
+    // used, so extract just that bit rather than all 7 -- avoids an
+    // UNUSEDSIGNAL warning on the other 6.
+    wire funct7_b5 = ir[30];
     wire [6:0] opcode = ir[6:0];
 
     wire [31:0] rs1_val = (rs1 == 5'd0) ? 32'h0 : regs[rs1];
@@ -66,9 +69,16 @@ module rv32i_core (
     // ------------------------------------------------------------
     wire [31:0] imm_i = {{20{ir[31]}}, ir[31:20]};
     wire [31:0] imm_s = {{20{ir[31]}}, ir[31:25], ir[11:7]};
-    wire [31:0] imm_b = {{19{ir[31]}}, ir[31], ir[7], ir[30:25], ir[11:8], 1'b0};
     wire [31:0] imm_u = {ir[31:12], 12'b0};
-    wire [31:0] imm_j = {{11{ir[31]}}, ir[31], ir[19:12], ir[20], ir[30:21], 1'b0};
+    // imm_b/imm_j only ever get used through their low 8 bits (PC is
+    // 8-bit here), so build just those 8 bits directly instead of the
+    // full 32-bit sign-extended immediate -- avoids an UNUSEDSIGNAL
+    // warning on bits[31:8], which were computed but never read.
+    // Equivalent to the standard B-type imm[7:0] = {imm[10:5][2:0],
+    // imm[4:1], 1'b0} and J-type imm[7:0] = {imm[10:1][7:1], 1'b0}
+    // slices of the full RISC-V immediates.
+    wire [7:0] imm_b = {ir[27], ir[26], ir[25], ir[11], ir[10], ir[9], ir[8], 1'b0};
+    wire [7:0] imm_j = {ir[27], ir[26], ir[25], ir[24], ir[23], ir[22], ir[21], 1'b0};
 
     // ------------------------------------------------------------
     // ALU
@@ -109,18 +119,18 @@ module rv32i_core (
                     3'b110: alu_op = 4'd8; // ORI
                     3'b111: alu_op = 4'd9; // ANDI
                     3'b001: alu_op = 4'd2; // SLLI
-                    3'b101: alu_op = funct7[5] ? 4'd7 : 4'd6; // SRAI/SRLI
+                    3'b101: alu_op = funct7_b5 ? 4'd7 : 4'd6; // SRAI/SRLI
                     default: alu_op = 4'd0;
                 endcase
             end
             `OP_REG: begin
                 case (funct3)
-                    3'b000: alu_op = funct7[5] ? 4'd1 : 4'd0; // SUB/ADD
+                    3'b000: alu_op = funct7_b5 ? 4'd1 : 4'd0; // SUB/ADD
                     3'b001: alu_op = 4'd2; // SLL
                     3'b010: alu_op = 4'd3; // SLT
                     3'b011: alu_op = 4'd4; // SLTU
                     3'b100: alu_op = 4'd5; // XOR
-                    3'b101: alu_op = funct7[5] ? 4'd7 : 4'd6; // SRA/SRL
+                    3'b101: alu_op = funct7_b5 ? 4'd7 : 4'd6; // SRA/SRL
                     3'b110: alu_op = 4'd8; // OR
                     3'b111: alu_op = 4'd9; // AND
                     default: alu_op = 4'd0;
@@ -196,9 +206,9 @@ module rv32i_core (
                 `ST_EXEC: begin
                     alu_result <= alu_y;
                     case (opcode)
-                        `OP_JAL:    next_pc <= pc + imm_j[7:0];
+                        `OP_JAL:    next_pc <= pc + imm_j;
                         `OP_JALR:   next_pc <= (rs1_val[7:0] + imm_i[7:0]) & 8'hFE;
-                        `OP_BRANCH: next_pc <= branch_cond ? (pc + imm_b[7:0]) : (pc + 8'd4);
+                        `OP_BRANCH: next_pc <= branch_cond ? (pc + imm_b) : (pc + 8'd4);
                         default:    next_pc <= pc + 8'd4;
                     endcase
                     state <= `ST_MEM;

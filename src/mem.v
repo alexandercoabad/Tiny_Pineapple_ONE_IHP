@@ -214,8 +214,15 @@ module mem #(
     initial for (i = 0; i < NWORDS; i = i + 1) ram_words[i] = 32'h0;
 `endif
 
-    wire [5:0]  ram_widx0    = ram_addr[7:2];
-    wire [5:0]  ram_widx1    = ram_addr[7:2] + 6'd1;
+    // NWORDS is 12, so a 4-bit index is exactly what's needed (covers
+    // 0-15); ram_addr is always < RAM_BYTES(48) whenever these are
+    // actually used (gated by in_ram/in_ram_range downstream), so
+    // this never actually indexes past entry 11 in practice -- narrows
+    // away a WIDTHTRUNC warning (array[11:0] only needs a 4-bit index)
+    // along with the UNUSEDSIGNAL warning a wider index's unused top
+    // bits would otherwise produce.
+    wire [3:0]  ram_widx0    = ram_addr[5:2];
+    wire [3:0]  ram_widx1    = ram_addr[5:2] + 4'd1;
     wire [1:0]  ram_byte_off = ram_addr[1:0];
     wire [63:0] ram_pair     = {ram_words[ram_widx1], ram_words[ram_widx0]};
 
@@ -231,7 +238,22 @@ module mem #(
     wire in_load_range = (addr >= LOAD_BASE) && (addr < (RAM_BASE + RAM_BYTES));
     wire in_ext_flash  = flash_mode && in_load_range;
     wire in_ram        = in_ram_range && !in_ext_flash;
-    wire [7:0] ram_addr = addr - RAM_BASE;
+    // Only the low 6 bits of (addr - RAM_BASE) are ever consumed
+    // below (ram_widx0/1 need bits[5:2], ram_byte_off needs bits[1:0]).
+    // Compute the full 8-bit subtraction first, then take an explicit
+    // 6-bit slice of it -- the explicit slice (vs. an implicit
+    // width-mismatched assignment) avoids a WIDTHTRUNC warning here
+    // while the narrower final wire avoids an UNUSEDSIGNAL warning on
+    // bits nothing reads. The 8-bit intermediate itself is
+    // intentionally wider than what's consumed (correct wraparound
+    // for out-of-range addr needs a full mod-256 subtract, not
+    // mod-64), so its own top 2 bits are deliberately unused --
+    // suppressed explicitly rather than narrowing the subtraction
+    // itself and getting the wrong wraparound.
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [7:0] ram_addr_full = addr - RAM_BASE;
+    /* verilator lint_on UNUSEDSIGNAL */
+    wire [5:0] ram_addr = ram_addr_full[5:0];
 
     // ---------------------------------------------------------------
     // External windows via qspi_shared_engine: the LOAD_BASE sub-range
