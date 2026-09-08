@@ -22,7 +22,9 @@ anyone who wants more headroom than the on-chip memory alone gives.
 
 ## Layout
 
-<img width="672" height="290" alt="Screenshot 2026-09-05 at 7 54 38 AM" src="https://github.com/user-attachments/assets/27507c0d-4309-4449-8588-f96f205cec55" />
+<img width="1321" height="346" alt="Screenshot 2026-09-08 at 5 24 21 PM" src="https://github.com/user-attachments/assets/7eefc661-9beb-4ecb-97c1-ce1736b87f9d" />
+
+https://gds-viewer.tinytapeout.com/?model=https://alexandercoabad.github.io/Tiny_Pineapple_ONE_IHP/tinytapeout.oas&pdk=ihp-sg13g2
 
 
 
@@ -105,25 +107,6 @@ retapeout needed. Full protocol, address map, pinout, and the
 `FLASH_MODE` opt-in for booting straight from external flash are in
 [docs/info.md](docs/info.md).
 
-## Before you submit — TODOs left in this repo
-
-1. **Fill in `info.yaml`**: `author` and `discord` are still placeholders.
-2. **Validate the external memory path against real hardware.** Everything
-   in `test/` passes in simulation, including against the shuttle's own
-   gate-level netlist, but the QSPI engine has only been checked against
-   a hand-written behavioral model (`test/spi_ram_model.v`), not a real
-   flash/PSRAM chip or vendor-accurate model. Treat that path as tested
-   groundwork, not hardware-proven, until you've run it against an
-   actual QSPI Pmod.
-3. **Gate-level sim**, if you haven't already: once CI produces
-   `gate_level_netlist.v`, run `make GATES=yes` in `test/` to confirm
-   the design still behaves correctly post-synthesis.
-
-Note: Tiny Tapeout requires unique top-module names across a shuttle.
-`tt_um_pineapple_one` is a fine name to keep, but it's a somewhat
-guessable/popular one — if the submission form flags a collision with
-another project on the `ttihp26b` shuttle, that's the one thing you'll
-need to adjust (`info.yaml`, `src/tt_um_pineapple_one.v`, `test/tb.v`).
 
 ## Testing locally
 
