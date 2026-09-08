@@ -66,4 +66,12 @@ standalone-tests:
 	vvp /tmp/tb_core_ext.vvp | tee /tmp/tb_core_ext.log
 	grep -q "ALL TESTS PASSED" /tmp/tb_core_ext.log
 	! grep -q "^FAIL" /tmp/tb_core_ext.log
+	@echo "--- tb_check.v ---"
+	iverilog -g2012 -I$(SRC_DIR) -o /tmp/tb_check.vvp $(SRC_DIR)/tt_um_pineapple_one.v $(SRC_DIR)/rv32i_core.v $(SRC_DIR)/mem.v $(SRC_DIR)/qspi_shared_engine.v spi_ram_model.v tb_check.v
+	vvp /tmp/tb_check.vvp | tee /tmp/tb_check.log
+	grep -q "^PASS scenario1" /tmp/tb_check.log
+	grep -q "^PASS scenario2:" /tmp/tb_check.log
+	grep -q "^PASS scenario2b" /tmp/tb_check.log
+	grep -q "^PASS scenario3" /tmp/tb_check.log
+	! grep -q "^FAIL" /tmp/tb_check.log
 	@echo "--- all standalone tests passed ---"

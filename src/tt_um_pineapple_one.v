@@ -3,7 +3,9 @@
 // Pin mapping (v2, QSPI Pmod added):
 //   ui_in[7:0]  -> memory-mapped input register at address 0xF4 (switches)
 //   uo_out[7:0] -> memory-mapped output register at address 0xF0 (LEDs)
-//   uio[0] -> QSPI Pmod CS0  (flash, reserved/unused this round -- always deasserted)
+//   uio[0] -> QSPI Pmod CS0  (flash -- backs the 0xB4-0xDF program
+//              window when a bootloaded program sets FLASH_MODE; see
+//              mem.v's header. Never asserted by the boot ROM itself.)
 //   uio[1] -> QSPI Pmod SD0/MOSI
 //   uio[2] -> QSPI Pmod SD1/MISO (input)
 //   uio[3] -> QSPI Pmod SCK

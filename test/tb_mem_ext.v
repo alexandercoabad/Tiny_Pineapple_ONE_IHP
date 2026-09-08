@@ -83,11 +83,14 @@ module tb_mem_ext;
         end
 
         // -----------------------------------------------------------
-        // Test 2: word WRITE to the external window (addr 0xB4),
-        // through the real engine + behavioral SPI RAM. Should take
-        // many cycles (genuine multi-cycle SPI transaction), not 0.
+        // Test 2: word WRITE to the external window (addr 0xE0, the
+        // first word of the new 0xE0-0xEF PSRAM window -- moved here
+        // when the address map was corrected: ROM/RAM/PSRAM had been
+        // overlapping, see mem.v's header comment), through the real
+        // engine + behavioral SPI RAM. Should take many cycles
+        // (genuine multi-cycle SPI transaction), not 0.
         // -----------------------------------------------------------
-        do_access(8'hB4, 32'hCAFEBABE, 2'd2, 1'b1);
+        do_access(8'hE0, 32'hCAFEBABE, 2'd2, 1'b1);
         if (wait_cycles < 10) begin
             errors = errors + 1;
             $display("FAIL test2: external write only took %0d wait cycles, expected a real multi-cycle SPI transaction", wait_cycles);
@@ -100,7 +103,7 @@ module tb_mem_ext;
         // write actually landed in the model's memory and the read
         // path (engine + mem.v's in_ext mux) reconstructs it correctly.
         // -----------------------------------------------------------
-        do_access(8'hB4, 32'h0, 2'd2, 1'b0);
+        do_access(8'hE0, 32'h0, 2'd2, 1'b0);
         if (rdata !== 32'hCAFEBABE) begin
             errors = errors + 1;
             $display("FAIL test3: read back %h, expected CAFEBABE", rdata);
@@ -110,11 +113,12 @@ module tb_mem_ext;
 
         // -----------------------------------------------------------
         // Test 4: byte-sized write+read at a different external
-        // address, to check size=byte isn't broken by the word-sized
-        // tests above (e.g. leftover state, wrong nbytes selection).
+        // address (0xE4, still within the 0xE0-0xEF window, distinct
+        // from test 2/3's word at 0xE0-0xE3), to check size=byte isn't
+        // broken by the word-sized tests above.
         // -----------------------------------------------------------
-        do_access(8'hC0, 32'h000000A5, 2'd0, 1'b1);
-        do_access(8'hC0, 32'h0, 2'd0, 1'b0);
+        do_access(8'hE4, 32'h000000A5, 2'd0, 1'b1);
+        do_access(8'hE4, 32'h0, 2'd0, 1'b0);
         if (rdata[7:0] !== 8'hA5) begin
             errors = errors + 1;
             $display("FAIL test4: byte read back %h, expected A5", rdata[7:0]);
@@ -123,12 +127,13 @@ module tb_mem_ext;
         end
 
         // -----------------------------------------------------------
-        // Test 5: on-chip RAM (addr 0x80) still works correctly after
-        // all this -- confirms in_ram/in_ext decode doesn't overlap
-        // or interfere with each other.
+        // Test 5: on-chip RAM (addr 0xB4, within the new 0xB0-0xDF RAM
+        // range) still works correctly after all this -- confirms
+        // in_ram/in_ext decode doesn't overlap or interfere with each
+        // other.
         // -----------------------------------------------------------
-        do_access(8'h80, 32'h11223344, 2'd2, 1'b1);
-        do_access(8'h80, 32'h0, 2'd2, 1'b0);
+        do_access(8'hB4, 32'h11223344, 2'd2, 1'b1);
+        do_access(8'hB4, 32'h0, 2'd2, 1'b0);
         if (rdata !== 32'h11223344) begin
             errors = errors + 1;
             $display("FAIL test5: on-chip RAM read back %h, expected 11223344", rdata);

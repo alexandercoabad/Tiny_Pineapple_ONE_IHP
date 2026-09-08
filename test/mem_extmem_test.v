@@ -1,33 +1,19 @@
-// mem.v -- byte-addressable memory for Pineapple-TT
+// mem_extmem_test.v -- standalone test-memory used only by
+// tb_core_ext.v. NOT mem.v -- mem.v now has a fixed boot ROM (self-test
+// + listen loop + bootloader) that isn't a convenient vehicle for a
+// short, deterministic "CPU drives a real load/store at the external
+// window" test, so this keeps the OLD simple-ROM-with-a-swapped-in-test-
+// program shape mem.v used to have, just updated to match mem.v's
+// current external-window address (0xE0-0xEF -- see mem.v's header for
+// why the PSRAM window moved there when the boot ROM grew to make room
+// for the bootloader's 0xB0-0xDF RAM window).
 //
-// Address map (8-bit address space, 256 bytes total):
-//   0x00 - 0x7F : ROM   (128 bytes / 32 instructions) -- combinational,
-//                   becomes fixed logic at synthesis time. Safe to rely on
-//                   at power-up on real silicon since it is NOT flip-flop
-//                   state, it is a lookup built from your program bytes.
-//   0x80 - 0xAF : RAM   (48 bytes) -- flip-flops, undefined at power-on
-//                   on real silicon, use for stack/scratch data only.
-//   0xB0 - 0xEF : RAM   (64 bytes) -- external PSRAM ("RAM A" / CS1) on
-//                   the Tiny Tapeout QSPI Pmod, via qspi_shared_engine.
-//                   Reads/writes here take multiple clock cycles (the
-//                   core stalls on `ready` until the SPI transaction
-//                   completes) instead of the single-cycle response
-//                   everything else on this bus gets. Requires the QSPI
-//                   Pmod to be physically attached -- with nothing
-//                   attached, reads/writes to this range have undefined
-//                   results (floating MISO), not a defined "unmapped"
-//                   no-op.
-//   0xF0        : LED_OUT  (memory-mapped, write-only, drives uo_out)
-//   0xF4        : SW_IN    (memory-mapped, read-only, reflects ui_in)
-//
-// Word accesses (LW/SW) must be 4-byte aligned. Byte/half accesses
-// (LB/LH/SB/SH) are supported at any address within a region.
-//
-// This is a single-cycle combinational read / synchronous write memory.
-// It is intentionally simple to get you to a working simulation fast;
-// swapping in a slower multi-cycle SPI-backed memory later (to talk to
-// real external RAM through the TT `uio` pins) only requires changing
-// this module, not the CPU control FSM.
+// Address map here (this test module only):
+//   0x00-0x7F : ROM (test program below)
+//   0x80-0xAF : RAM (unused by the test program, present for parity)
+//   0xE0-0xEF : external PSRAM window (CS1), via qspi_shared_engine
+//   0xF0      : LED_OUT
+//   0xF4      : SW_IN
 
 `default_nettype none
 
@@ -80,14 +66,14 @@ module mem_test_ext #(
         begin
             case (a)
                 // TEST PROGRAM (not the production demo -- see
-                // test/tb_core_ext.v) exercising mem.v's external
-                // 0xB0-0xEF window through real CPU load/store
+                // test/tb_core_ext.v) exercising the external
+                // 0xE0-0xEF window through real CPU load/store
                 // instructions instead of driving the bus directly:
                 //
-                //   addi x1, x0, 0xB4   ; x1 = external RAM address
+                //   addi x1, x0, 0xE0   ; x1 = external RAM address
                 //   addi x2, x0, 0xA5   ; x2 = test value
-                //   sw   x2, 0(x1)      ; mem[0xB4..0xB7] = 0xA5 (external write)
-                //   lw   x3, 0(x1)      ; x3 = mem[0xB4] (external read)
+                //   sw   x2, 0(x1)      ; mem[0xE0..0xE3] = 0xA5 (external write)
+                //   lw   x3, 0(x1)      ; x3 = mem[0xE0] (external read)
                 //   addi x4, x0, 0xF0   ; x4 = LED_OUT address
                 //   sw   x3, 0(x4)      ; LED_OUT = x3 -- uo_out should read 0xA5
                 // loop:
@@ -95,10 +81,10 @@ module mem_test_ext #(
                 //
                 // Encodings independently verified with a standalone
                 // decoder (see conversation/dev notes) before use here.
-                8'h00: rom_byte = 8'h93; // addi x1,x0,0xB4  -> 0x0B400093
+                8'h00: rom_byte = 8'h93; // addi x1,x0,0xE0  -> 0x0E000093
                 8'h01: rom_byte = 8'h00;
-                8'h02: rom_byte = 8'h40;
-                8'h03: rom_byte = 8'h0b;
+                8'h02: rom_byte = 8'h00;
+                8'h03: rom_byte = 8'h0e;
                 8'h04: rom_byte = 8'h13; // addi x2,x0,0xA5  -> 0x0A500113
                 8'h05: rom_byte = 8'h01;
                 8'h06: rom_byte = 8'h50;
@@ -146,10 +132,11 @@ module mem_test_ext #(
     wire [7:0] ram_addr = addr - 8'h80;
 
     // ---------------------------------------------------------------
-    // External PSRAM window (0xB0-0xEF, 64 bytes) via qspi_shared_engine
+    // External PSRAM window (0xE0-0xEF, 16 bytes) via qspi_shared_engine
+    // -- matches mem.v's current EXT_PSRAM_BASE/EXT_PSRAM_BYTES.
     // ---------------------------------------------------------------
-    wire in_ext = (addr >= 8'hB0) && (addr < 8'hF0);
-    wire [23:0] ext_addr = {16'h0, (addr - 8'hB0)};
+    wire in_ext = (addr >= 8'hE0) && (addr < 8'hF0);
+    wire [23:0] ext_addr = {16'h0, (addr - 8'hE0)};
 
     wire        ext_req_valid = valid && in_ext;
     wire [31:0] ext_rdata;
