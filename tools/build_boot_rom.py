@@ -296,11 +296,24 @@ nbytes = len(words) * 4
 print(f"Boot ROM is {nbytes} bytes ({len(words)} instructions)")
 
 with open('boot_rom_body.vh', 'w') as f:
+    # One case arm per 32-bit WORD (addr[7:2] indexed), not per byte.
+    # An earlier version emitted one arm per BYTE address and read the
+    # ROM through a `function` called 4 separate times per access (once
+    # per byte lane, each with its own +1/+2/+3 adder) -- that pattern
+    # doesn't get recognized as a lookup table by synthesis the way a
+    # `reg` array does; each call became its own ~176-entry chain of
+    # per-byte equality comparators, x4, and dominated mem.v's cell
+    # count (confirmed with a generic yosys `synth`: ~9.5k cells for
+    # what should be a small decode module, almost all $_MUX_/$_OR_/
+    # $_ANDNOT_ contributed by this ROM). That's very likely what was
+    # behind the RTL-GDS placement/routing convergence trouble --
+    # replicated random logic that size is a lot for the router to
+    # place and wire on a 6x2 tile. Indexing by word instead of byte
+    # cuts both the number of case arms (176 -> 44) and the number of
+    # times the case is instantiated (4 -> 2, see mem.v's rom_word
+    # logic) to a fraction of the original size.
     for i, w in enumerate(words):
-        base = i * 4
-        for b in range(4):
-            byte = (w >> (8*b)) & 0xFF
-            f.write(f"                8'h{base+b:02x}: rom_byte = 8'h{byte:02x};\n")
+        f.write(f"                6'd{i}: rom_word_at = 32'h{w:08x};\n")
 
 with open('boot_rom.hex', 'w') as f:
     for w in words:
